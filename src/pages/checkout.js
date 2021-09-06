@@ -5,11 +5,31 @@ import CheckoutProduct from "../components/CheckoutProduct";
 import Header from "../components/Header";
 import { selectItems, selectTotal } from "../slices/basketSlice";
 import Currency from 'react-currency-formatter'
+import { loadStripe } from "@stripe/stripe-js";
+import axios from "axios";
+const stripePromise = loadStripe(process.env.stripe_public_key)
 
 function Checkout() {
     const items = useSelector(selectItems)
     const [session] = useSession();
     const total = useSelector(selectTotal)
+
+    const createCheckoutSession = async () => {
+        const stripe = await stripePromise;
+
+        // Call the backend to create a checkout session
+        const checkoutSession = await axios.post('/api/create-checkout-session', {
+            items: items,
+            email: session.user.email,
+        })
+
+        //  Redirect user to checkout
+        const result = await stripe.redirectToCheckout({
+            sessionId: checkoutSession.data.id
+        })
+
+        if (result.error) alert(result.error.message)
+    }
 
     return (
         <div className='bg-gray-100'>
@@ -59,7 +79,14 @@ function Checkout() {
                                 
                                 </h2>
                                 
-                                <button disabled={!session} className={`button mt-2 ${!session && 'from-gray-300 to-gray-500 border-gray-200 text-gray-300 cursor-not-allowed'}`}>
+                                <button 
+                                    disabled={!session}
+                                    role='link'
+                                    onClick={createCheckoutSession}
+                                    className={`button mt-2 ${
+                                        !session && 'from-gray-300 to-gray-500 border-gray-200 text-gray-300 cursor-not-allowed'}`
+                                    }
+                                >
                                     {!session ? 'Sign in to checkout' : 'Proceed to checkout'}
                                 </button>
                             </>
